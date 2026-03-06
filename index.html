@@ -365,7 +365,7 @@
                 <div class="dot"></div>
                 <div class="title-block">
                     <span>2.5D ANTI</span>
-                    <div id="hud-version">v2026.03.06-r7</div>
+                    <div id="hud-version">v2026.03.06-r8</div>
                 </div>
             </div>
 
@@ -687,6 +687,7 @@
         // ═══════════════════════════════════════════════════════════════════════════════
         // LIVE2D MODEL
         // ═══════════════════════════════════════════════════════════════════════════════
+        const CHAR_SCREEN_Y_OFFSET = 84; // push character downward so chest sits near screen center
         let live2dModel = null;
 
         // Shadow under the character
@@ -695,7 +696,7 @@
         shadow.drawEllipse(0, 0, 40, 14);
         shadow.endFill();
         shadow.x = app.screen.width / 2;
-        shadow.y = app.screen.height / 2 + 3;  // near feet
+        shadow.y = app.screen.height / 2 + CHAR_SCREEN_Y_OFFSET + 3;  // near feet
         app.stage.addChild(shadow);
 
         async function loadLive2D() {
@@ -708,7 +709,7 @@
                 const modelScale = 0.28;             // small RPG-character size
                 live2dModel.scale.set(modelScale);
                 live2dModel.x = app.screen.width / 2;
-                live2dModel.y = app.screen.height / 2;
+                live2dModel.y = app.screen.height / 2 + CHAR_SCREEN_Y_OFFSET;
 
                 app.stage.addChild(live2dModel);
 
@@ -723,9 +724,9 @@
                 window.addEventListener('resize', () => {
                     live2dModel.scale.set(0.28);
                     live2dModel.x = app.screen.width / 2;
-                    live2dModel.y = app.screen.height / 2;
+                    live2dModel.y = app.screen.height / 2 + CHAR_SCREEN_Y_OFFSET;
                     shadow.x = app.screen.width / 2;
-                    shadow.y = app.screen.height / 2 + 3;  // near feet
+                    shadow.y = app.screen.height / 2 + CHAR_SCREEN_Y_OFFSET + 3;  // near feet
                 });
 
             } catch (e) {
