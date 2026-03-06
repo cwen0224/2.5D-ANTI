@@ -365,7 +365,7 @@
                 <div class="dot"></div>
                 <div class="title-block">
                     <span>2.5D ANTI</span>
-                    <div id="hud-version">v2026.03.06-r5</div>
+                    <div id="hud-version">v2026.03.06-r6</div>
                 </div>
             </div>
 
@@ -679,7 +679,7 @@
         shadow.drawEllipse(0, 0, 40, 14);
         shadow.endFill();
         shadow.x = app.screen.width / 2;
-        shadow.y = app.screen.height / 2 + 10;  // near feet
+        shadow.y = app.screen.height / 2 + 3;  // near feet
         app.stage.addChild(shadow);
 
         async function loadLive2D() {
@@ -709,7 +709,7 @@
                     live2dModel.x = app.screen.width / 2;
                     live2dModel.y = app.screen.height / 2;
                     shadow.x = app.screen.width / 2;
-                    shadow.y = app.screen.height / 2 + 10;  // near feet
+                    shadow.y = app.screen.height / 2 + 3;  // near feet
                 });
 
             } catch (e) {
