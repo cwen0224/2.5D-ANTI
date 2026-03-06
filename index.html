@@ -365,7 +365,7 @@
                 <div class="dot"></div>
                 <div class="title-block">
                     <span>2.5D ANTI</span>
-                    <div id="hud-version">v2026.03.06-r6</div>
+                    <div id="hud-version">v2026.03.06-r7</div>
                 </div>
             </div>
 
@@ -620,12 +620,28 @@
         // ═══════════════════════════════════════════════════════════════════════════════
         // KEYBOARD INPUT
         // ═══════════════════════════════════════════════════════════════════════════════
-        const keys = {};
-        window.addEventListener('keydown', e => { keys[e.key] = true; e.preventDefault(); });
-        window.addEventListener('keyup', e => { keys[e.key] = false; });
+        const keys = Object.create(null);
+        const keyBlockList = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight']);
+        const dpadState = { up: false, down: false, left: false, right: false };
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (keyBlockList.has(e.code)) e.preventDefault();
+        });
+        window.addEventListener('keyup', e => {
+            keys[e.code] = false;
+            if (keyBlockList.has(e.code)) e.preventDefault();
+        });
+        function clearAllInput() {
+            for (const k in keys) keys[k] = false;
+            dpadState.up = false; dpadState.down = false; dpadState.left = false; dpadState.right = false;
+            document.querySelectorAll('.dkey').forEach(el => el.classList.remove('pressed'));
+        }
+        window.addEventListener('blur', clearAllInput);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) clearAllInput();
+        });
 
         // Mobile D-Pad
-        const dpadState = { up: false, down: false, left: false, right: false };
         function setupDpad() {
             const map = {
                 'dpad-up': 'up',
@@ -734,16 +750,16 @@
         function gameTick(delta) {
             // ── Input → velocity ──────────────────────────────────────────────────────
             velX = 0; velY = 0;
-            if (keys['ArrowLeft'] || keys['a'] || keys['A'] || dpadState.left) velX -= 1;
-            if (keys['ArrowRight'] || keys['d'] || keys['D'] || dpadState.right) velX += 1;
-            if (keys['ArrowUp'] || keys['w'] || keys['W'] || dpadState.up) velY -= 1;
-            if (keys['ArrowDown'] || keys['s'] || keys['S'] || dpadState.down) velY += 1;
+            if (keys['ArrowLeft'] || keys['KeyA'] || dpadState.left) velX -= 1;
+            if (keys['ArrowRight'] || keys['KeyD'] || dpadState.right) velX += 1;
+            if (keys['ArrowUp'] || keys['KeyW'] || dpadState.up) velY -= 1;
+            if (keys['ArrowDown'] || keys['KeyS'] || dpadState.down) velY += 1;
 
             // Normalize diagonal
             if (velX !== 0 && velY !== 0) { velX *= 0.7071; velY *= 0.7071; }
 
             isMoving = (velX !== 0 || velY !== 0);
-            isRunning = keys['Shift'] === true;
+            isRunning = keys['ShiftLeft'] || keys['ShiftRight'];
 
             // ── Move with collision ───────────────────────────────────────────────────
             const moveSpeed = isRunning ? SPEED * RUN_MULT : SPEED;
