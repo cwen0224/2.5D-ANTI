@@ -365,7 +365,7 @@
                 <div class="dot"></div>
                 <div class="title-block">
                     <span>2.5D ANTI</span>
-                    <div id="hud-version">v2026.03.06-r4</div>
+                    <div id="hud-version">v2026.03.06-r5</div>
                 </div>
             </div>
 
@@ -395,7 +395,7 @@
                 <span class="key">A</span>
                 <span class="key">S</span>
                 <span class="key">D</span>
-                <span style="margin-left:4px;">或方向鍵移動</span>
+                <span style="margin-left:4px;">或方向鍵移動 · Shift 奔跑</span>
             </div>
 
             <div id="hud-status">
@@ -591,7 +591,8 @@
         // ═══════════════════════════════════════════════════════════════════════════════
         // CHARACTER STATE
         // ═══════════════════════════════════════════════════════════════════════════════
-        const SPEED = 2.8;    // pixels per frame at 60fps
+        const SPEED = 2.8;    // walk speed (pixels per frame at 60fps)
+        const RUN_MULT = 1.8; // hold Shift to run
         const FACING_MAX = 8;
         const WC_MAX = 4;
         const WC_IDLE = 1;      // standing position
@@ -603,6 +604,7 @@
 
         let velX = 0, velY = 0;
         let isMoving = false;
+        let isRunning = false;
 
         // Facing: 0=south/toward camera, 4=north/away, goes 0→8 (360°)
         // Screen: moving DOWN = south = facing 0
@@ -741,10 +743,12 @@
             if (velX !== 0 && velY !== 0) { velX *= 0.7071; velY *= 0.7071; }
 
             isMoving = (velX !== 0 || velY !== 0);
+            isRunning = keys['Shift'] === true;
 
             // ── Move with collision ───────────────────────────────────────────────────
-            const nx = charX + velX * SPEED * delta;
-            const ny = charY + velY * SPEED * delta;
+            const moveSpeed = isRunning ? SPEED * RUN_MULT : SPEED;
+            const nx = charX + velX * moveSpeed * delta;
+            const ny = charY + velY * moveSpeed * delta;
 
             if (canMove(nx, charY)) charX = nx;
             if (canMove(charX, ny)) charY = ny;
@@ -772,7 +776,8 @@
             // ── Walk Cycle ────────────────────────────────────────────────────────────
             const dt = delta / 60; // seconds
             if (isMoving) {
-                walkPhase = (walkPhase + WC_SPEED * dt) % 1;
+                const wcRate = isRunning ? WC_SPEED * 1.35 : WC_SPEED;
+                walkPhase = (walkPhase + wcRate * dt) % 1;
                 // Sawtooth 0→4 (complete walk cycle loop)
                 const targetWC = walkPhase * WC_MAX;
                 wcSmooth = targetWC;
@@ -801,7 +806,7 @@
             if (!live2dModel) return;
             const dirLabel = facingLabel(facingSmooth);
             document.getElementById('state-label').textContent =
-                isMoving ? `行走中 · ${dirLabel}` : `靜止 · ${dirLabel}`;
+                isMoving ? `${isRunning ? '奔跑中' : '行走中'} · ${dirLabel}` : `靜止 · ${dirLabel}`;
         }
 
         function facingLabel(f) {
