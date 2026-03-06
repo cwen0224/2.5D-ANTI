@@ -1,0 +1,42 @@
+{
+	"Version": 3,
+	"Parameters": [
+		{
+			"Id": "facing",
+			"GroupId": "",
+			"Name": "旋轉"
+		},
+		{
+			"Id": "walkingcycle",
+			"GroupId": "",
+			"Name": "走路"
+		}
+	],
+	"ParameterGroups": [],
+	"Parts": [
+		{
+			"Id": "Part2",
+			"Name": "身體"
+		},
+		{
+			"Id": "Part3",
+			"Name": "紅"
+		},
+		{
+			"Id": "Part5",
+			"Name": "黃"
+		},
+		{
+			"Id": "Part6",
+			"Name": "綠"
+		},
+		{
+			"Id": "Part4",
+			"Name": "藍"
+		},
+		{
+			"Id": "Part",
+			"Name": "備用"
+		}
+	]
+}

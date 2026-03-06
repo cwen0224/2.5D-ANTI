@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>2.5D ANTI — Map Walker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --accent: #a78bfa;
+            --accent2: #38bdf8;
+            --bg: #4b0000;
+            --panel: rgba(10, 10, 20, 0.75);
+            --border: rgba(167, 139, 250, 0.25);
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg);
+            font-family: 'Outfit', sans-serif;
+            color: var(--text);
+        }
+
+        #game-wrap {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #pixi-canvas {
+            position: absolute;
+            inset: 0;
+            display: block;
+        }
+
+        /* ── HUD ── */
+        #hud {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        /* top-left: title */
+        #hud-title {
+            position: absolute;
+            top: 18px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1)
+            }
+
+            50% {
+                opacity: .5;
+                transform: scale(.8)
+            }
+        }
+
+        #hud-title span {
+            font-size: .85rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* top-right: param display */
+        #hud-params {
+            position: absolute;
+            top: 18px;
+            right: 20px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            backdrop-filter: blur(10px);
+            min-width: 190px;
+        }
+
+        .param-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: .8rem;
+            margin-bottom: 8px;
+        }
+
+        .param-line:last-child {
+            margin-bottom: 0;
+        }
+
+        .param-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+            display: inline-block;
+        }
+
+        .pd-f {
+            background: var(--accent);
+            box-shadow: 0 0 5px var(--accent);
+        }
+
+        .pd-w {
+            background: var(--accent2);
+            box-shadow: 0 0 5px var(--accent2);
+        }
+
+        .pbar-wrap {
+            flex: 1;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            margin: 0 8px;
+            overflow: hidden;
+        }
+
+        .pbar {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.05s linear;
+        }
+
+        .pbar-f {
+            background: var(--accent);
+        }
+
+        .pbar-w {
+            background: var(--accent2);
+        }
+
+        .pval {
+            font-size: .78rem;
+            color: var(--muted);
+            min-width: 32px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* bottom-center: controls */
+        #hud-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 20px;
+            backdrop-filter: blur(10px);
+            font-size: .75rem;
+            color: var(--muted);
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .key {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            font-size: .7rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        /* bottom-right: status indicator */
+        #hud-status {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 7px 14px;
+            backdrop-filter: blur(10px);
+            font-size: .75rem;
+            color: var(--muted);
+        }
+
+        #state-label {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* direction compass */
+        #hud-compass {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 72px;
+            height: 72px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #compass-arrow {
+            width: 0;
+            height: 0;
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+            border-bottom: 22px solid var(--accent);
+            transform-origin: center 15px;
+            transition: transform 0.1s ease;
+            filter: drop-shadow(0 0 4px var(--accent));
+        }
+
+        /* loading */
+        #loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            background: var(--bg);
+            z-index: 100;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(167, 139, 250, 0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #loading p {
+            font-size: .9rem;
+            color: var(--muted);
+        }
+
+        /* Mobile D-pad */
+        #dpad {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            display: none;
+            grid-template-columns: repeat(3, 44px);
+            grid-template-rows: repeat(3, 44px);
+            gap: 4px;
+            pointer-events: all;
+        }
+
+        @media (pointer: coarse) {
+            #dpad {
+                display: grid;
+            }
+
+            #hud-controls {
+                display: none;
+            }
+        }
+
+        .dkey {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            transition: background .1s;
+        }
+
+        .dkey:active,
+        .dkey.pressed {
+            background: rgba(167, 139, 250, 0.25);
+            border-color: var(--accent);
+        }
+
+        .dkey-center {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-wrap">
+
+        <!-- PIXI canvas -->
+        <canvas id="pixi-canvas"></canvas>
+
+        <!-- HUD overlay -->
+        <div id="hud">
+
+            <div id="hud-title">
+                <div class="dot"></div>
+                <span>2.5D ANTI</span>
+            </div>
+
+            <div id="hud-params">
+                <div class="param-line">
+                    <span><span class="param-dot pd-f"></span>旋轉</span>
+                    <div class="pbar-wrap">
+                        <div class="pbar pbar-f" id="bar-f" style="width:0%"></div>
+                    </div>
+                    <span class="pval" id="val-f">0.00</span>
+                </div>
+                <div class="param-line">
+                    <span><span class="param-dot pd-w"></span>走路</span>
+                    <div class="pbar-wrap">
+                        <div class="pbar pbar-w" id="bar-w" style="width:25%"></div>
+                    </div>
+                    <span class="pval" id="val-w">1.00</span>
+                </div>
+            </div>
+
+            <div id="hud-compass">
+                <div id="compass-arrow"></div>
+            </div>
+
+            <div id="hud-controls">
+                <span class="key">W</span>
+                <span class="key">A</span>
+                <span class="key">S</span>
+                <span class="key">D</span>
+                <span style="margin-left:4px;">或方向鍵移動</span>
+            </div>
+
+            <div id="hud-status">
+                狀態：<span id="state-label">載入中…</span>
+            </div>
+
+            <!-- Mobile D-Pad -->
+            <div id="dpad">
+                <div></div>
+                <div class="dkey" id="dpad-up">▲</div>
+                <div></div>
+                <div class="dkey" id="dpad-left">◀</div>
+                <div class="dkey-center dkey"></div>
+                <div class="dkey" id="dpad-right">▶</div>
+                <div></div>
+                <div class="dkey" id="dpad-down">▼</div>
+                <div></div>
+            </div>
+
+        </div><!-- /hud -->
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>載入地圖與模型…</p>
+        </div>
+
+    </div><!-- /game-wrap -->
+
+    <!-- Scripts -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6/dist/browser/pixi.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/cubism4.min.js"></script>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // MAP DEFINITION
+        // 0=grass  1=path  2=tree  3=water  4=flower  5=stone  6=darkgrass
+        // ═══════════════════════════════════════════════════════════════════════════════
+        const TILE = 64;
+
+        const MAP_DATA = [
+            // 0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [2, 6, 6, 4, 6, 6, 6, 6, 4, 6, 6, 4, 6, 6, 6, 6, 4, 6, 6, 2],
+            [2, 6, 2, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 6, 6, 2, 6, 6, 2],
+            [2, 4, 6, 6, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6, 6, 4, 6, 2],
+            [2, 6, 6, 1, 0, 0, 4, 0, 0, 3, 3, 0, 0, 4, 0, 1, 6, 6, 6, 2],
+            [2, 6, 1, 0, 0, 4, 0, 0, 3, 3, 3, 3, 0, 0, 4, 0, 1, 6, 6, 2],
+            [2, 1, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 1, 6, 2],
+            [2, 1, 0, 0, 5, 0, 0, 0, 3, 3, 3, 3, 0, 0, 5, 0, 0, 1, 4, 2],
+            [2, 1, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0, 1, 6, 2],
+            [2, 6, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 1, 6, 4, 2],
+            [2, 6, 6, 1, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 1, 6, 6, 6, 2],
+            [2, 4, 6, 6, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6, 6, 4, 6, 2],
+            [2, 6, 2, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 6, 6, 2, 6, 6, 2],
+            [2, 6, 6, 4, 6, 6, 6, 6, 4, 6, 6, 4, 6, 6, 6, 6, 4, 6, 6, 2],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        ];
+
+        const MAP_W = MAP_DATA[0].length;
+        const MAP_H = MAP_DATA.length;
+
+        // Solid tiles (can't walk on)
+        const SOLID = new Set([2, 3]);
+
+        // Tile colors
+        const TILE_COLOR = {
+            0: 0x5aaf5a,  // grass
+            1: 0xc8a87a,  // path
+            2: 0x2d6b2d,  // tree (drawn specially)
+            3: 0x4499cc,  // water
+            4: 0x6abf5e,  // flower tile (slightly lighter grass)
+            5: 0x9e9e8a,  // stone
+            6: 0x4e9e4e,  // dark grass
+        };
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // PIXI SETUP
+        // ═══════════════════════════════════════════════════════════════════════════════
+        const canvas = document.getElementById('pixi-canvas');
+        const W = window.innerWidth, H = window.innerHeight;
+
+        const app = new PIXI.Application({
+            view: canvas,
+            width: W, height: H,
+            backgroundColor: 0x4b0000,
+            antialias: true,
+            resolution: window.devicePixelRatio || 1,
+            autoDensity: true,
+        });
+
+        window.addEventListener('resize', () => {
+            app.renderer.resize(window.innerWidth, window.innerHeight);
+        });
+
+        // Map container (scrolls with camera)
+        const mapContainer = new PIXI.Container();
+        app.stage.addChild(mapContainer);
+
+        // ─── Draw the tile map ────────────────────────────────────────────────────────
+        function drawMap() {
+            const g = new PIXI.Graphics();
+
+            for (let row = 0; row < MAP_H; row++) {
+                for (let col = 0; col < MAP_W; col++) {
+                    const t = MAP_DATA[row][col];
+                    const x = col * TILE, y = row * TILE;
+
+                    // Base tile
+                    g.beginFill(TILE_COLOR[t] ?? 0x4e9e4e);
+                    g.drawRect(x, y, TILE, TILE);
+                    g.endFill();
+
+                    // Grid lines (subtle)
+                    g.lineStyle(0.5, 0x000000, 0.07);
+                    g.drawRect(x, y, TILE, TILE);
+                    g.lineStyle(0);
+
+                    // Decorations
+                    if (t === 0 || t === 6 || t === 4) {
+                        // subtle texture dots
+                        g.beginFill(0x000000, 0.05);
+                        g.drawCircle(x + 12, y + 18, 3);
+                        g.drawCircle(x + 48, y + 42, 2);
+                        g.endFill();
+                    }
+
+                    if (t === 4) {
+                        // flower dots
+                        g.beginFill(0xffeb3b, 0.8);
+                        g.drawCircle(x + 20, y + 20, 4);
+                        g.endFill();
+                        g.beginFill(0xff8a80, 0.8);
+                        g.drawCircle(x + 44, y + 40, 3);
+                        g.endFill();
+                    }
+
+                    if (t === 3) {
+                        // water shimmer lines
+                        g.lineStyle(1.5, 0x80d4ff, 0.35);
+                        g.moveTo(x + 10, y + 22); g.lineTo(x + 30, y + 22);
+                        g.moveTo(x + 25, y + 38); g.lineTo(x + 50, y + 38);
+                        g.lineStyle(0);
+                    }
+
+                    if (t === 5) {
+                        // stone cracks
+                        g.lineStyle(1, 0x6e6e60, 0.5);
+                        g.moveTo(x + 15, y + 20); g.lineTo(x + 25, y + 35);
+                        g.moveTo(x + 40, y + 25); g.lineTo(x + 50, y + 45);
+                        g.lineStyle(0);
+                    }
+                }
+            }
+
+            // Draw trees on top (circles)
+            for (let row = 0; row < MAP_H; row++) {
+                for (let col = 0; col < MAP_W; col++) {
+                    if (MAP_DATA[row][col] === 2) {
+                        const x = col * TILE + TILE / 2;
+                        const y = row * TILE + TILE / 2;
+                        // shadow
+                        g.beginFill(0x000000, 0.15);
+                        g.drawEllipse(x, y + 10, 26, 8);
+                        g.endFill();
+                        // trunk
+                        g.beginFill(0x6b4226);
+                        g.drawRect(x - 5, y + 2, 10, 20);
+                        g.endFill();
+                        // foliage (layered)
+                        g.beginFill(0x1b5e20);
+                        g.drawCircle(x, y - 8, 26);
+                        g.endFill();
+                        g.beginFill(0x2e7d32);
+                        g.drawCircle(x - 5, y - 12, 20);
+                        g.endFill();
+                        g.beginFill(0x388e3c);
+                        g.drawCircle(x + 4, y - 14, 16);
+                        g.endFill();
+                        // highlight
+                        g.beginFill(0x4caf50, 0.4);
+                        g.drawCircle(x + 6, y - 18, 8);
+                        g.endFill();
+                    }
+                }
+            }
+
+            mapContainer.addChild(g);
+        }
+
+        drawMap();
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // CHARACTER STATE
+        // ═══════════════════════════════════════════════════════════════════════════════
+        const SPEED = 2.8;    // pixels per frame at 60fps
+        const FACING_MAX = 8;
+        const WC_MAX = 4;
+        const WC_IDLE = 1;      // standing position
+        const WC_SPEED = 3.5;    // full cycles per second while walking
+
+        // Start position: row=10, col=5 — confirmed open grass tile
+        let charX = 5.5 * TILE;
+        let charY = 10.5 * TILE;
+
+        let velX = 0, velY = 0;
+        let isMoving = false;
+
+        // Facing: 0=south/toward camera, 4=north/away, goes 0→8 (360°)
+        // Screen: moving DOWN = south = facing 0
+        let facingRaw = 0;   // target (from velocity direction)
+        let facingSmooth = 0;   // smoothed value sent to model
+        let walkPhase = 0;   // 0→1 looping; maps to WC 0→4
+        let wcSmooth = WC_IDLE;
+
+        // pending values for the late-tick writer
+        let pendingFacing = 0;
+        let pendingWC = WC_IDLE;
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // KEYBOARD INPUT
+        // ═══════════════════════════════════════════════════════════════════════════════
+        const keys = {};
+        window.addEventListener('keydown', e => { keys[e.key] = true; e.preventDefault(); });
+        window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+        // Mobile D-Pad
+        const dpadState = { up: false, down: false, left: false, right: false };
+        function setupDpad() {
+            const map = {
+                'dpad-up': 'up',
+                'dpad-down': 'down',
+                'dpad-left': 'left',
+                'dpad-right': 'right',
+            };
+            Object.entries(map).forEach(([id, dir]) => {
+                const el = document.getElementById(id);
+                el.addEventListener('touchstart', e => { dpadState[dir] = true; el.classList.add('pressed'); e.preventDefault(); });
+                el.addEventListener('touchend', e => { dpadState[dir] = false; el.classList.remove('pressed'); e.preventDefault(); });
+            });
+        }
+        setupDpad();
+
+        // ─── Collision check ─────────────────────────────────────────────────────────
+        function isSolid(worldX, worldY) {
+            const col = Math.floor(worldX / TILE);
+            const row = Math.floor(worldY / TILE);
+            if (col < 0 || col >= MAP_W || row < 0 || row >= MAP_H) return true;
+            return SOLID.has(MAP_DATA[row][col]);
+        }
+
+        // Check a small bounding box around the character
+        const CHAR_RADIUS = 18;
+        function canMove(nx, ny) {
+            return !isSolid(nx - CHAR_RADIUS, ny - CHAR_RADIUS) &&
+                !isSolid(nx + CHAR_RADIUS, ny - CHAR_RADIUS) &&
+                !isSolid(nx - CHAR_RADIUS, ny + CHAR_RADIUS) &&
+                !isSolid(nx + CHAR_RADIUS, ny + CHAR_RADIUS);
+        }
+
+        // ─── Angle interpolation (handles 0↔8 wrap) ───────────────────────────────
+        function lerpAngle(cur, tar, alpha, max) {
+            let diff = tar - cur;
+            if (diff > max / 2) diff -= max;
+            if (diff < -max / 2) diff += max;
+            let r = cur + diff * alpha;
+            r = ((r % max) + max) % max;
+            return r;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // LIVE2D MODEL
+        // ═══════════════════════════════════════════════════════════════════════════════
+        let live2dModel = null;
+
+        // Shadow under the character
+        const shadow = new PIXI.Graphics();
+        shadow.beginFill(0x000000, 0.25);
+        shadow.drawEllipse(0, 0, 40, 14);
+        shadow.endFill();
+        shadow.x = app.screen.width / 2;
+        shadow.y = app.screen.height / 2 + 10;  // near feet
+        app.stage.addChild(shadow);
+
+        async function loadLive2D() {
+            try {
+                live2dModel = await PIXI.live2d.Live2DModel.from('MODEL/2.5D0.model3.json', {
+                    autoInteract: false,
+                });
+
+                live2dModel.anchor.set(0.5, 0.85);  // feet at anchor point
+                const modelScale = 0.28;             // small RPG-character size
+                live2dModel.scale.set(modelScale);
+                live2dModel.x = app.screen.width / 2;
+                live2dModel.y = app.screen.height / 2;
+
+                app.stage.addChild(live2dModel);
+
+                // Hide loading overlay
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('state-label').textContent = '準備好了';
+
+                // Late-tick: write params AFTER model's own update pipeline
+                app.ticker.add(gameTick, null, PIXI.UPDATE_PRIORITY.NORMAL);
+                app.ticker.add(applyParams, null, PIXI.UPDATE_PRIORITY.LOW);
+
+                window.addEventListener('resize', () => {
+                    live2dModel.scale.set(0.28);
+                    live2dModel.x = app.screen.width / 2;
+                    live2dModel.y = app.screen.height / 2;
+                    shadow.x = app.screen.width / 2;
+                    shadow.y = app.screen.height / 2 + 10;  // near feet
+                });
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loading').innerHTML =
+                    '<p style="color:#f87171">⚠ 模型載入失敗</p>' +
+                    '<p style="color:#94a3b8;font-size:.8rem">請確認從 http://localhost:8080 開啟</p>';
+            }
+        }
+
+        // ─── Apply pending params to coreModel ───────────────────────────────────────
+        function applyParams() {
+            if (!live2dModel) return;
+            const core = live2dModel.internalModel.coreModel;
+            core.setParameterValueById('facing', pendingFacing);
+            core.setParameterValueById('walkingcycle', pendingWC);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // GAME LOOP
+        // ═══════════════════════════════════════════════════════════════════════════════
+        function gameTick(delta) {
+            // ── Input → velocity ──────────────────────────────────────────────────────
+            velX = 0; velY = 0;
+            if (keys['ArrowLeft'] || keys['a'] || keys['A'] || dpadState.left) velX -= 1;
+            if (keys['ArrowRight'] || keys['d'] || keys['D'] || dpadState.right) velX += 1;
+            if (keys['ArrowUp'] || keys['w'] || keys['W'] || dpadState.up) velY -= 1;
+            if (keys['ArrowDown'] || keys['s'] || keys['S'] || dpadState.down) velY += 1;
+
+            // Normalize diagonal
+            if (velX !== 0 && velY !== 0) { velX *= 0.7071; velY *= 0.7071; }
+
+            isMoving = (velX !== 0 || velY !== 0);
+
+            // ── Move with collision ───────────────────────────────────────────────────
+            const nx = charX + velX * SPEED * delta;
+            const ny = charY + velY * SPEED * delta;
+
+            if (canMove(nx, charY)) charX = nx;
+            if (canMove(charX, ny)) charY = ny;
+
+            // ── Camera follow ─────────────────────────────────────────────────────────
+            const cx = app.screen.width / 2;
+            const cy = app.screen.height / 2;
+            mapContainer.x = cx - charX;
+            mapContainer.y = cy - charY;
+
+            // ── Facing calculation ────────────────────────────────────────────────────
+            // atan2(vx, vy): South(down)=0, East(right)=π/2, North(up)=π, West(left)=-π/2
+            if (isMoving) {
+                let angle = Math.atan2(velX, velY); // 0 at south, clockwise positive
+                if (angle < 0) angle += 2 * Math.PI;
+                facingRaw = (angle / (2 * Math.PI)) * FACING_MAX;
+            }
+
+            // Smooth toward target
+            if (isMoving) {
+                facingSmooth = lerpAngle(facingSmooth, facingRaw, 0.18, FACING_MAX);
+            }
+            // When stopped, we keep current facing (don't snap back)
+
+            // ── Walk Cycle ────────────────────────────────────────────────────────────
+            const dt = delta / 60; // seconds
+            if (isMoving) {
+                walkPhase = (walkPhase + WC_SPEED * dt) % 1;
+                // Sawtooth 0→4 (complete walk cycle loop)
+                const targetWC = walkPhase * WC_MAX;
+                wcSmooth = targetWC;
+            } else {
+                // Ease to idle (WC = 1)
+                wcSmooth += (WC_IDLE - wcSmooth) * 0.08;
+                if (Math.abs(wcSmooth - WC_IDLE) < 0.01) wcSmooth = WC_IDLE;
+            }
+
+            pendingFacing = facingSmooth;
+            pendingWC = wcSmooth;
+
+            // ── HUD update ────────────────────────────────────────────────────────────
+            document.getElementById('val-f').textContent = facingSmooth.toFixed(2);
+            document.getElementById('val-w').textContent = wcSmooth.toFixed(2);
+            document.getElementById('bar-f').style.width = (facingSmooth / FACING_MAX * 100) + '%';
+            document.getElementById('bar-w').style.width = (wcSmooth / WC_MAX * 100) + '%';
+
+            // Compass: convert facing to screen angle
+            // facing 0 = south = arrow points down (180°), facing 4 = north = arrow points up (0°)
+            const compassDeg = (facingSmooth / FACING_MAX) * 360;
+            document.getElementById('compass-arrow').style.transform =
+                `rotate(${compassDeg}deg)`;
+
+            // State label
+            if (!live2dModel) return;
+            const dirLabel = facingLabel(facingSmooth);
+            document.getElementById('state-label').textContent =
+                isMoving ? `行走中 · ${dirLabel}` : `靜止 · ${dirLabel}`;
+        }
+
+        function facingLabel(f) {
+            // 0=S, 1=SW, 2=W, 3=NW, 4=N, 5=NE, 6=E, 7=SE, 8=S
+            const dirs = ['南 ↓', '西南', '西 ←', '西北', '北 ↑', '東北', '東 →', '東南'];
+            const idx = Math.round(((f % FACING_MAX) / FACING_MAX) * 8) % 8;
+            return dirs[idx];
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // BOOT
+        // ═══════════════════════════════════════════════════════════════════════════════
+        loadLive2D();
+    </script>
+</body>
+
+</html>
